@@ -236,7 +236,7 @@ function extractTag(block, tag) {
     .trim();
 }
 
-/* ----------------- TG 推送 ----------------- */
+/* ----------------- TG 推送（NodeSeek 风格精简版） ----------------- */
 
 async function sendToTelegram(env, item) {
   const botToken = env.BOT_TOKEN;
@@ -249,20 +249,22 @@ async function sendToTelegram(env, item) {
 
   const apiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
 
+  const title = item.title || "No title";
+  const pubDate = item.pubDate || "";
+  const link = item.link || "";
+
+  // 尽量贴近 NodeSeek 推送：上面几行说明，下面网页卡片展示正文
   const text =
-    `🆕 LowEndTalk 新帖子\n\n` +
-    `📌 *${escapeMarkdown(item.title || "No title")}*\n` +
-    (item.pubDate ? `🕒 ${escapeMarkdown(item.pubDate)}\n` : "") +
-    (item.link ? `🔗 [打开帖子](${escapeMarkdown(item.link)})\n\n` : "\n") +
-    (item.description
-      ? `${truncate(escapeMarkdown(stripHtml(item.description)), 800)}`
-      : "");
+    `🔔 <b>LowEndTalk 新帖子</b>\n\n` +
+    `【标题】${escapeHtml(title)}\n` +
+    (pubDate ? `【时间】${escapeHtml(pubDate)}\n` : "") +
+    (link ? `【链接】<a href="${escapeHtml(link)}">打开帖子</a>` : "");
 
   const payload = {
     chat_id: chatId,
     text,
-    parse_mode: "MarkdownV2",
-    disable_web_page_preview: false,
+    parse_mode: "HTML",
+    disable_web_page_preview: false, // 打开网页卡片预览
   };
 
   const resp = await fetch(apiUrl, {
@@ -279,6 +281,16 @@ async function sendToTelegram(env, item) {
   return true;
 }
 
+// HTML 转义，避免标题 / 链接里的特殊字符破坏格式
+function escapeHtml(text) {
+  if (!text) return "";
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// 下面两个工具函数 AI/其他地方会用到，先保留
 function stripHtml(html) {
   return html.replace(/<[^>]*>/g, " ");
 }
@@ -286,11 +298,6 @@ function stripHtml(html) {
 function truncate(str, maxLen) {
   if (str.length <= maxLen) return str;
   return str.slice(0, maxLen - 3) + "...";
-}
-
-function escapeMarkdown(text) {
-  if (!text) return "";
-  return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, (match) => "\\" + match);
 }
 
 /* ----------------- AI 过滤（可选） ----------------- */
